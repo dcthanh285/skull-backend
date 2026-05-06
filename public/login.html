@@ -1,1 +1,31 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đăng nhập - 💀 Skull Crypto Scanner Breakout Pro Bot</title>
+  <style>
+    body { background:#0f0f23; color:white; font-family:Arial; text-align:center; padding-top:100px; }
+    input, button { padding:12px; font-size:18px; margin:10px; }
+  </style>
+</head>
+<body>
+  <h1>🔐 💀 Skull Crypto Scanner Breakout Pro</h1>
+  <input type="password" id="pass" placeholder="Nhập password">
+  <br><br>
+  <button onclick="login()">Đăng nhập</button>
+  <p id="msg" style="color:red;"></p>
 
+  <script>
+    async function login() {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: document.getElementById('pass').value })
+      });
+      const data = await res.json();
+      if (data.success) location.reload();
+      else document.getElementById('msg').innerText = data.message;
+    }
+  </script>
+</body>
+</html>
