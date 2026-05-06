@@ -1,0 +1,611 @@
+ <!DOCTYPE html> 
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Skull Crypto Scanner Breakout Pro</title>
+  <style>
+    body { background:#0f0f23; color:#ddd; font-family:Arial, sans-serif; margin:0; padding:20px; }
+    h1 { color:#ff3366; text-shadow: 0 0 10px #ff3366; margin-bottom:25px; }
+    .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .btn-scan { padding:12px 26px; background:#ff3366; color:white; border:none; border-radius:8px; cursor:pointer; font-size:16px; }
+    .timeframe-btn { padding:10px 18px; margin:4px; background:#1a1a2e; color:#0f0; border:1px solid #00aa66; border-radius:6px; cursor:pointer; }
+    .timeframe-btn.active { background:#00aa66; color:white; font-weight:bold; }
+    .tab { padding:14px 28px; margin-right:8px; background:#1a1a2e; color:#0f0; border:none; border-radius:8px 8px 0 0; cursor:pointer; font-size:16px; }
+    .tab.active { background:#00aa66; color:white; font-weight:bold; }
+    table { width:100%; border-collapse:collapse; margin-top:15px; background:#1a1a2e; }
+    th, td { padding:12px; text-align:left; border-bottom:1px solid #333; }
+    th { background:#16213e; }
+    .long-row { background:#1e3a2f; }
+    .short-row { background:#3a1f1f; }
+    .observe-row { background:#1e3a2f; }
+    .green { color:#00ff88; font-weight:bold; }
+    .red { color:#ff6666; font-weight:bold; }
+    .condition { font-size:14px; line-height:1.8; }
+    .report { background:#1a2a1a; padding:15px; border-radius:8px; margin:15px 0; }
+    #progress { color:#ffcc00; font-weight:bold; margin:10px 0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>💀 Skull Crypto Scanner Breakout Pro</h1>
+    <div>
+      <button onclick="toggleLanguage()" style="padding:8px 18px; background:#1a1a2e; color:#0f0; border:1px solid #00aa66; border-radius:6px; cursor:pointer;">🌐 VN / EN</button>
+      <button onclick="logout()" style="margin-left:12px; padding:8px 18px; background:#aa0000; color:white; border:none; border-radius:6px; cursor:pointer;">Đăng xuất</button>
+    </div>
+  </div>
+
+  <button class="btn-scan" id="scanBtn" onclick="startScan()">🔄 Quét lại ngay</button>
+
+  <div style="margin:15px 0;">
+    <strong>Timeframe:</strong><br>
+    <button class="timeframe-btn active" data-tf="1h" onclick="changeTimeframe(this)">1H</button>
+    <button class="timeframe-btn" data-tf="15m" onclick="changeTimeframe(this)">15M</button>
+    <button class="timeframe-btn" data-tf="5m" onclick="changeTimeframe(this)">5M</button>
+    <button class="timeframe-btn" data-tf="1d" onclick="changeTimeframe(this)">D1</button>
+  </div>
+
+  <div id="progress">Nhấn "Quét lại ngay" để bắt đầu...</div>
+ 
+         <!-- ================= AUTO SCAN STATUS ================= -->
+  <div style="background: #1a2a1a; padding: 15px; border-radius: 12px; margin: 15px 0; border: 2px solid #00ff88;">
+    <h3 style="color: #00ff88; margin: 0 0 10px 0;">⏰ Trạng thái Auto Scan</h3>
+    <div id="autoStatus" style="line-height: 1.8; font-size: 15px; color: #ddd;">
+      Đang tải trạng thái Auto Scan...
+    </div>
+    <div id="autoProgress" style="margin-top:8px; font-size:14px; color:#ffcc00; font-weight:bold;"></div>
+  </div>
+  <!-- ================= END AUTO SCAN STATUS ================= -->
+  <div style="margin:25px 0 15px;">
+    <button class="tab" onclick="switchTab(0)">📋 Quan sát</button>
+    <button class="tab" onclick="switchTab(1)">🔥 Breakout (8 Điều kiện)</button>
+    <button class="tab active" onclick="switchTab(2)">🚀 Signal Crypto</button>
+    <button class="tab" onclick="switchTab(3)">📊 Thống kê</button>
+  </div>
+
+  <div class="report" id="reportBox">
+    Tổng lệnh: <span id="totalTrades">0</span> | 
+    Winrate: <span id="winRateReport">0%</span> | 
+    Thắng: <span id="wins">0</span> - Thua: <span id="losses">0</span>
+  </div>
+
+  <!-- Tab 1: Quan sát -->
+  <div id="content-0" style="display:none;">
+    <h2>📋 Coin cần Quan sát (≥ 5/8 điều kiện)</h2>
+    <table id="observeTable"></table>
+  </div>
+
+  <!-- Tab 2: Breakout 8 Điều kiện -->
+  <div id="content-1" style="display:none;">
+    <h2>🔥 Breakout (8 Điều kiện)</h2>
+    <table id="breakoutTable"></table>
+  </div>
+
+  <!-- Tab 3: Signal Crypto -->
+  <div id="content-2">
+    <h2>🚀 Signal Crypto (Đang mở)</h2>
+    <table id="signalTable">
+      <tr>
+        <th>Coin</th>
+        <th>Hướng</th>
+        <th>Thời gian vào lệnh</th>
+        <th>Entry</th>
+        <th>TP1</th>
+        <th>TP2</th>
+        <th>TP3</th>
+        <th>SL</th>
+        <th>Giá hiện tại</th>
+        <th>P/L %</th>
+        <th>Rank</th>
+        <th>Status</th>   
+       <th>Progress</th>
+      </tr>
+    </table>
+
+    <h2 style="margin-top:30px;">📜 Lịch sử (50 lệnh gần nhất)</h2>
+    <table id="historyTable"></table>
+  </div>
+<!-- Tab 4: Thống kê -->
+<div id="content-3" style="display:none;">
+  <h2>📊 Thống kê Kết quả Giao dịch</h2>
+
+  <div style="margin:15px 0;">
+    <button onclick="loadStats('all')" class="timeframe-btn">Tất cả</button>
+    <button onclick="loadStats('today')" class="timeframe-btn">Hôm nay</button>
+    <button onclick="loadStats('thisweek')" class="timeframe-btn">7 ngày qua</button>
+    <button onclick="loadStats('thismonth')" class="timeframe-btn">Tháng này</button>
+    <button onclick="loadStats('thisyear')" class="timeframe-btn">Năm nay</button>
+  </div>
+
+  <div id="statsCards" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:15px; margin:20px 0;"></div>
+
+  <h3>📅 Breakdown theo ngày (14 ngày gần nhất)</h3>
+  <table id="dailyTable" style="width:100%; border-collapse:collapse; background:#1a1a2e;"></table>
+
+  <div style="margin-top:30px; text-align:center;">
+    <button onclick="sendTelegramReport()" 
+            style="padding:14px 32px; background:#00aa66; color:white; border:none; border-radius:8px; font-size:16px; cursor:pointer;">
+      📤 Gửi Báo Cáo Telegram Ngay
+    </button>
+  </div>
+</div>
+  <script>
+  let currentTimeframe = '1h';
+  let isScanning = false;
+  let activeSignals = [];
+  let isEnglish = false;
+// ✅ FORMAT GIÁ GỌN ĐẸP
+function formatPrice(price) {
+  if (price === null || price === undefined) return '-';
+
+  const p = parseFloat(price);
+  if (isNaN(p)) return '-';
+
+  if (p >= 1000) return p.toFixed(2);
+  if (p >= 1) return p.toFixed(3);
+  if (p >= 0.01) return p.toFixed(4);
+  return p.toFixed(6);
+}
+function renderProgress(s) {
+  let tp1 = s.hitTP1 ? '🟢 TP1' : '⚪ TP1';
+  let tp2 = s.hitTP2 ? '🟢 TP2' : '⚪ TP2';
+  let tp3 = s.hitTP3 ? '🟢 TP3' : '⚪ TP3';
+  let sl  = s.hitSL  ? '🔴 SL'  : '⚪ SL';
+
+  return `${tp1} | ${tp2} | ${tp3} | ${sl}`;
+}
+
+  function toggleLanguage() {
+    isEnglish = !isEnglish;
+    alert(isEnglish ? "Switched to English" : "Đã chuyển sang tiếng Việt");
+  }
+
+  function changeTimeframe(btn) {
+    document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTimeframe = btn.dataset.tf;
+  }
+
+  async function startScan() {
+  if (isScanning) return;
+  isScanning = true;
+
+  const btn = document.getElementById('scanBtn');
+  if (btn) {
+    btn.textContent = "Đang quét...";
+    btn.disabled = true;
+  }
+
+  const p = document.getElementById('progress');
+  if (p) p.textContent = "🚀 Bắt đầu quét...";
+
+  // Reset bảng (có check null luôn cho chắc)
+  const observeTable = document.getElementById('observeTable');
+  if (observeTable) {
+    observeTable.innerHTML = `<tr><th>Coin</th><th>Giá</th><th>Bandwidth (%)</th><th>Squeeze Count</th><th>Score</th><th>Trạng thái</th></tr>`;
+  }
+
+  const breakoutTable = document.getElementById('breakoutTable');
+  if (breakoutTable) {
+    breakoutTable.innerHTML = `<tr><th>Coin</th><th>Trạng thái</th><th>Giá</th><th>Bandwidth (%)</th><th>Score</th><th>8 Điều kiện</th></tr>`;
+  }
+
+  const signalTable = document.getElementById('signalTable');
+  if (signalTable) {
+    signalTable.innerHTML = `
+      <tr>
+        <th>Coin</th><th>Hướng</th><th>Thời gian vào lệnh</th>
+        <th>Entry</th><th>TP1</th><th>TP2</th><th>TP3</th>
+        <th>SL</th><th>Giá hiện tại</th><th>P/L %</th><th>Progress</th>
+      </tr>`;
+  }
+
+  try {
+    let start = 0;
+    const batchSize = 20;
+
+    while (true) {
+      const res = await fetch(`/api/scan?timeframe=${currentTimeframe}&start=${start}&batch=${batchSize}`);
+
+      if (!res.ok) {
+        throw new Error("API lỗi server");
+      }
+
+      const data = await res.json();
+
+      if (!data || data.error) {
+        throw new Error(data?.error || "Dữ liệu lỗi");
+      }
+
+      // render
+      if (Array.isArray(data.observe)) {
+        data.observe.forEach(addObserveRow);
+      }
+
+      if (Array.isArray(data.breakout)) {
+        data.breakout.forEach(addBreakoutRow);
+      }
+
+      if (Array.isArray(data.newSignals)) {
+        data.newSignals.forEach(addSignalRow);
+      }
+
+      // ✅ FIX CHÍNH: chống null
+      const progressEl = document.getElementById('progress');
+      if (progressEl) {
+        progressEl.textContent =
+          `Đang quét ${data.scanned || start}/${data.total || 500} coin...`;
+      }
+
+      const totalEl = document.getElementById('totalTrades');
+      if (totalEl) {
+        totalEl.textContent = activeSignals.length;
+      }
+
+      if (data.isComplete) {
+        if (progressEl) {
+          progressEl.textContent =
+            `✅ Hoàn tất! Tổng coin: ${data.total || 500}`;
+        }
+        break;
+      }
+
+      start += batchSize;
+
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+  } catch (err) {
+    console.error("SCAN ERROR:", err);
+
+    const progressEl = document.getElementById('progress');
+    if (progressEl) progressEl.textContent = "❌ Lỗi quét!";
+  } finally {
+    if (btn) {
+      btn.textContent = "🔄 Quét lại ngay";
+      btn.disabled = false;
+    }
+    isScanning = false;
+  }
+}
+
+  function addObserveRow(item) {
+    const row = `<tr class="observe-row">
+      <td><strong>${item.symbol}</strong></td>
+      <td>${item.price}</td>
+      <td>${item.bandwidth}</td>
+      <td>${item.squeezeCandles}</td>
+      <td>${item.score}/8</td>
+      <td>QUAN SÁT 👀</td>
+    </tr>`;
+    document.getElementById('observeTable').innerHTML += row;
+  }
+
+  function addBreakoutRow(item) {
+    const c = item.conditions || {};
+    const isLong = item.direction === 'LONG';
+    const row = `<tr class="${isLong ? 'long-row' : 'short-row'}">
+      <td><strong>${item.symbol}</strong></td>
+      <td style="color:${isLong ? '#00ff88' : '#ff6666'}">${item.direction || 'BREAKOUT'}</td>
+      <td>${item.entry || item.price}</td>
+      <td>${item.bandwidth || '-'}</td>
+      <td>
+  <strong>${item.score}</strong><br>
+  <span style="
+    color:
+      ${item.rank === 'VIP' ? '#ffd700' :
+        item.rank === 'GOOD' ? '#00ff88' : '#999'};
+    font-weight:bold;">
+    ${item.rank}
+  </span>
+</td>
+      <td class="condition">
+        Breakout: ${c.breakout ? '<span class="green">✅</span>' : '<span class="red">❌</span>'} 
+        Squeeze: ${c.squeeze ? '<span class="green">✅</span>' : '<span class="red">❌</span>'} 
+        Volume: ${c.volume ? '<span class="green">✅</span>' : '<span class="red">❌</span>'} 
+        Strong Candle: ${c.strongCandle ? '<span class="green">✅</span>' : '<span class="red">❌</span>'}<br>
+        RSI: ${c.rsi ? '<span class="green">✅</span>' : '<span class="red">❌</span>'} 
+        MACD: ${c.macd ? '<span class="green">✅</span>' : '<span class="red">❌</span>'} 
+        Daily Trend: ${c.dailyTrend ? '<span class="green">✅</span>' : '<span class="red">❌</span>'} 
+        Squeeze Count: ${c.squeezeCount ? '<span class="green">✅</span>' : '<span class="red">❌</span>'}
+      </td>
+    </tr>`;
+    document.getElementById('breakoutTable').innerHTML += row;
+  }
+
+  function addSignalRow(s) {
+  activeSignals.push(s);
+  const isLong = s.direction === 'LONG';
+  const timeStr = s.timestamp ? s.timestamp : new Date().toLocaleString('vi-VN');
+
+  const row = `<tr style="background:${isLong ? '#1e3a2f' : '#3a1f1f'}">
+    <td><strong>${s.symbol}</strong></td>
+    <td style="color:${isLong ? '#00ff88' : '#ff6666'}">${s.direction}</td>
+    <td>${timeStr}</td>
+    <td>${formatPrice(s.entry)}</td>
+    <td class="${s.hitTP1 ? 'green' : ''}">${formatPrice(s.tp1)}</td>
+    <td class="${s.hitTP2 ? 'green' : ''}">${formatPrice(s.tp2)}</td>
+    <td class="${s.hitTP3 ? 'green' : ''}">${formatPrice(s.tp3)}</td>
+    <td class="${s.hitSL ? 'red' : ''}">${formatPrice(s.sl)}</td>
+    <td>${formatPrice(s.currentPrice || s.entry)}</td>
+    <td style="color:${(s.pnlPercent || 0) >= 0 ? '#00ff88' : '#ff6666'}">
+      ${(s.pnlPercent || 0).toFixed(2)}%
+    </td>
+
+    <!-- 🔥 THÊM RANK Ở ĐÂY -->
+    <td style="
+      color:
+        ${s.rank === 'VIP' ? '#ffd700' :
+          s.rank === 'GOOD' ? '#00ff88' : '#999'};
+      font-weight:bold;">
+      ${s.rank || 'WEAK'}
+    </td>
+
+<td style="font-weight:bold;">
+  ${
+    s.hitSL
+      ? '💀 Stopped Out'
+      : s.hitTP3
+        ? '🏆 Full TP'
+        : s.trailing
+          ? '🔒 Locked Profit'
+          : s.hitTP1
+            ? '⚖️ Breakeven'
+            : '🚀 In Trade'
+  }
+</td>
+    <td>${renderProgress(s)}</td>
+  </tr>`;
+
+  document.getElementById('signalTable').innerHTML += row;
+}
+
+  // Render lại lịch sử từ file
+  async function loadHistory() {
+    try {
+      const res = await fetch('/api/signals');
+      const { history } = await res.json();
+      
+      let html = `<tr>
+  <th>Thời gian</th>
+  <th>Coin</th>
+  <th>Hướng</th>
+  <th>Entry</th>
+  <th>Progress</th>
+  <th>Kết quả</th>
+  <th>P/L %</th>
+  <th>Rank</th>
+
+</tr>`;
+      const recentHistory = [...history]
+  .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  .slice(0, 50); // chỉ lấy 50 lệnh gần nhất
+
+      recentHistory.forEach(h => {
+      html += `<tr>
+  <td>${h.timestamp}</td>
+  <td>${h.symbol}</td>
+  <td>${h.direction}</td>
+  <td>${formatPrice(h.entry)}</td>
+  <td>${renderProgress(h)}</td>
+  <td>${h.status}</td>
+  <td>${(h.pnlPercent || 0).toFixed(2)}%</td>
+</tr>`;
+      });
+
+      document.getElementById('historyTable').innerHTML = html;
+// ===== THỐNG KÊ WINRATE =====
+let total = history.length;
+
+let tp1 = 0, tp2 = 0, tp3 = 0, sl = 0;
+
+history.forEach(h => {
+  if (h.hitTP1) tp1++;
+  if (h.hitTP2) tp2++;
+  if (h.hitTP3) tp3++;
+
+  // chỉ tính SL nếu chưa đạt TP1
+  if (h.hitSL && !h.hitTP1) sl++;
+});
+
+const tp1Rate = total ? ((tp1 / total) * 100).toFixed(1) : 0;
+const tp2Rate = total ? ((tp2 / total) * 100).toFixed(1) : 0;
+const tp3Rate = total ? ((tp3 / total) * 100).toFixed(1) : 0;
+const slRate  = total ? ((sl / total) * 100).toFixed(1) : 0;
+
+// Hiển thị
+document.getElementById('reportBox').innerHTML = `
+  📊 Tổng lệnh: ${total} <br>
+  🟢 TP1: ${tp1Rate}% |
+  🟡 TP2: ${tp2Rate}% |
+  🔥 TP3: ${tp3Rate}% |
+  🔴 SL: ${slRate}%
+`;
+    } catch (e) {
+      console.error("Không load được lịch sử", e);
+    }
+  }
+
+  function switchTab(tab) {
+  for (let i = 0; i < 4; i++) {   // <-- thay 3 thành 4
+    const el = document.getElementById('content-' + i);
+    if (el) el.style.display = (i === tab) ? 'block' : 'none';
+  }
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === tab));
+  
+  if (tab === 3) loadStats('all'); // tự động load khi mở tab Thống kê
+}
+
+async function loadStats(period = 'all') {
+  try {
+    const res = await fetch(`/api/stats?period=${period}`);
+    const stats = await res.json();
+
+    // Render cards
+    const cardsHTML = `
+      <div style="background:#1a2a1a;padding:20px;border-radius:10px;text-align:center;">
+        <div style="font-size:32px;font-weight:bold;color:#00ff88;">${stats.total}</div>
+        <div>Tổng lệnh</div>
+      </div>
+      <div style="background:#1a2a1a;padding:20px;border-radius:10px;text-align:center;">
+        <div style="font-size:32px;font-weight:bold;color:#00ff88;">${stats.winRate}%</div>
+        <div>Win Rate Tổng</div>
+      </div>
+      <div style="background:#1a2a1a;padding:20px;border-radius:10px;text-align:center;">
+        <div style="font-size:32px;font-weight:bold;color:#ffd700;">${stats.vipWinRate}%</div>
+        <div>VIP Win Rate (${stats.vipTrades} lệnh)</div>
+      </div>
+      <div style="background:#1a2a1a;padding:20px;border-radius:10px;text-align:center;">
+        <div style="font-size:32px;font-weight:bold;color:#00ff88;">${stats.goodWinRate}%</div>
+        <div>GOOD Win Rate (${stats.goodTrades} lệnh)</div>
+      </div>
+      <div style="background:#1a2a1a;padding:20px;border-radius:10px;text-align:center;">
+        <div style="font-size:32px;font-weight:bold;">${stats.avgPNL}%</div>
+        <div>Avg PNL</div>
+      </div>
+      <div style="background:#1a2a1a;padding:20px;border-radius:10px;text-align:center;">
+        <div style="font-size:32px;font-weight:bold;color:#ffaa00;">${stats.tp3Rate}%</div>
+        <div>Đạt Full TP3</div>
+      </div>
+    `;
+    document.getElementById('statsCards').innerHTML = cardsHTML;
+
+    // Render daily table
+    let tableHTML = `<tr><th>Ngày</th><th>Lệnh</th><th>Win</th><th>Win Rate</th><th>Avg PNL</th></tr>`;
+    stats.dailyBreakdown.forEach(d => {
+      tableHTML += `<tr>
+        <td><strong>${d.date}</strong></td>
+        <td>${d.total}</td>
+        <td>${d.wins}</td>
+        <td><span style="color:#00ff88">${d.winRate}%</span></td>
+        <td>${d.pnl.toFixed(1)}%</td>
+      </tr>`;
+    });
+    document.getElementById('dailyTable').innerHTML = tableHTML;
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById('statsCards').innerHTML = `<p style="color:#ff6666">Lỗi tải thống kê</p>`;
+  }
+}
+
+async function sendTelegramReport() {
+  if (!confirm('Gửi báo cáo thống kê hiện tại lên Telegram?')) return;
+
+  try {
+    const res = await fetch('/api/stats?period=all');
+    const stats = await res.json();
+
+    const msg = `
+🚀 <b>SKULL SCANNER - BÁO CÁO THỐNG KÊ</b>
+
+📅 ${new Date().toLocaleDateString('vi-VN')}
+📌 Tổng lệnh: <b>${stats.total}</b>
+✅ Win Rate: <b>${stats.winRate}%</b> (${stats.wins} thắng / ${stats.losses} thua)
+
+🏆 <b>VIP</b>: ${stats.vipWinRate}% (${stats.vipTrades} lệnh)
+🟢 <b>GOOD</b>: ${stats.goodWinRate}% (${stats.goodTrades} lệnh)
+📈 Avg PNL: <b>${stats.avgPNL}%</b>
+🏅 Đạt TP3: <b>${stats.tp3Rate}%</b>
+    `.trim();
+
+    await fetch('/api/send-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg })
+    });
+
+    alert('✅ Đã gửi báo cáo lên Telegram thành công!');
+  } catch (e) {
+    alert('❌ Lỗi khi gửi Telegram');
+  }
+}
+
+  function logout() {
+    fetch('/logout').then(() => window.location.href = '/');
+  }
+
+  // Auto refresh
+ setInterval(async () => {
+  await fetch('/api/update-signals');
+
+  const res = await fetch('/api/signals');
+  const data = await res.json();
+
+  // reset bảng
+  document.getElementById('signalTable').innerHTML = `
+    <tr>
+      <th>Coin</th><th>Hướng</th><th>Thời gian vào lệnh</th>
+      <th>Entry</th><th>TP1</th><th>TP2</th><th>TP3</th>
+      <th>SL</th><th>Giá hiện tại</th><th>P/L %</th><th>Progress</th>
+    </tr>`;
+
+  activeSignals = [];
+
+  data.active.forEach(s => addSignalRow(s));
+
+  loadHistory();
+
+}, 8000);
+
+          window.onload = () => {
+      switchTab(1); // Mặc định mở tab Breakout
+      loadHistory(); // Load lịch sử ngay khi mở trang
+      updateAutoStatus(); // Load trạng thái Auto Scan
+    };
+
+   
+ 
+// ================= AUTO STATUS + CẬP NHẬT BẢNG (ĐÃ CHỈNH ID ĐÚNG) =================
+async function updateAutoStatus() {
+  try {
+    const res = await fetch('/api/scan-status');
+    const data = await res.json();
+
+    // Trạng thái
+    let html = `<span style="color:#00ff88">● Auto Scan đang chạy</span><br>`;
+    if (data.currentScan) {
+      html += `Đang quét <b>${data.currentScan.timeframe}</b> → ${data.currentScan.scanned}/${data.currentScan.total} coin`;
+    } else if (data.lastScan) {
+      html += `Lần quét cuối: ${data.lastScan}`;
+    }
+    document.getElementById('autoStatus').innerHTML = html;
+
+    // Cập nhật Quan sát
+    if (data.observe && data.observe.length > 0) {
+      let htmlObs = `<tr><th>Coin</th><th>Score</th><th>BW %</th><th>Giá</th></tr>`;
+      data.observe.slice(0, 30).forEach(item => {
+        htmlObs += `<tr class="observe-row">
+          <td><strong>${item.symbol}</strong></td>
+          <td class="green">${item.score}</td>
+          <td>${item.bandwidth}%</td>
+          <td>${item.price}</td>
+        </tr>`;
+      });
+      document.getElementById('observeTable').innerHTML = htmlObs;
+    }
+
+    // Cập nhật Breakout
+    if (data.breakout && data.breakout.length > 0) {
+      let htmlBr = `<tr><th>Coin</th><th>Hướng</th><th>Score</th><th>Rank</th><th>Giá</th></tr>`;
+      data.breakout.slice(0, 20).forEach(item => {
+        const color = item.direction === 'LONG' ? 'green' : 'red';
+        htmlBr += `<tr class="${item.direction === 'LONG' ? 'long-row' : 'short-row'}">
+          <td><strong>${item.symbol}</strong></td>
+          <td class="${color}">${item.direction}</td>
+          <td class="green">${item.score}</td>
+          <td>${item.rank}</td>
+          <td>${item.price}</td>
+        </tr>`;
+      });
+      document.getElementById('breakoutTable').innerHTML = htmlBr;
+    }
+  } catch (e) {
+    console.log("Auto status error", e);
+  }
+}
+
+setInterval(updateAutoStatus, 4000);
+updateAutoStatus();
+  </script>
+</body>
+</html>
