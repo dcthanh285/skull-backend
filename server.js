@@ -47,15 +47,24 @@ let lastScanTime = null;
 let lastScanTF = "";
 let currentScanning = null;
 
-// Load history
+// ================= LOAD HISTORY (dùng Volume) =================
+const HISTORY_PATH = '/app/data/history.json';
+
 try {
-  if (fs.existsSync('./history.json')) {
-    const data = fs.readFileSync('./history.json', 'utf-8');
+  // Tạo thư mục data nếu chưa có
+  if (!fs.existsSync('/app/data')) {
+    fs.mkdirSync('/app/data', { recursive: true });
+  }
+
+  if (fs.existsSync(HISTORY_PATH)) {
+    const data = fs.readFileSync(HISTORY_PATH, 'utf-8');
     signalHistory = JSON.parse(data);
-    console.log("✅ Loaded history:", signalHistory.length);
+    console.log("✅ Loaded history from Volume:", signalHistory.length);
+  } else {
+    console.log("📂 Chưa có file history, sẽ tạo mới...");
   }
 } catch (err) {
-  console.log("❌ Load history lỗi:", err);
+  console.log("❌ Load history lỗi:", err.message);
 }
 
 // ================= TELEGRAM =================
@@ -205,7 +214,7 @@ app.get('/api/update-signals', async (req, res) => {
           signal.status = signal.hitTP3 ? 'TP3 TRAILING WIN' : signal.hitTP2 ? 'PROFIT LOCKED' : signal.hitTP1 ? 'BREAKEVEN' : 'STOP LOSS';
           signalHistory.unshift({ ...signal });
           if (signalHistory.length > 200) signalHistory.pop();
-          fs.writeFileSync('./history.json', JSON.stringify(signalHistory, null, 2));
+          fs.writeFileSync(HISTORY_PATH, JSON.stringify(signalHistory, null, 2));
           signal._closed = true;
         }
       } catch (err) {
