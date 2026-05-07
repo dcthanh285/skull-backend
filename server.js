@@ -421,7 +421,7 @@ app.get('/api/scan', async (req, res) => {
         if (score >= 10.5) rank = "VIP";
         else if (score >= 8.0) rank = "GOOD";
 
-        const finalCondition = conditions.higherTF && (conditions.pullback || conditions.earlyBreakout) && (conditions.breakout || conditions.earlyBreakout);
+                const finalCondition = conditions.higherTF && (conditions.pullback || conditions.earlyBreakout) && (conditions.breakout || conditions.earlyBreakout);
 
         if (score >= 5) {
           observe.push({
@@ -433,11 +433,37 @@ app.get('/api/scan', async (req, res) => {
           });
         }
 
-        if ((breakoutLong || breakoutShort) && finalCondition) {
+        // ================= LOGIC ENTRY LONG/SHORT MỚI - TĂNG WINRATE =================
+        if ((breakoutLong || breakoutShort) && finalCondition && score >= 7.5) {
+
+          const isLong = breakoutLong;
+
+          // Xác nhận bias nến ngày (Higher TF)
+          let higherTFConfirm = true;
+          try {
+            const dOHLCV = await exchange.fetchOHLCV(symbol, '1d', undefined, 30);
+            if (dOHLCV.length >= 20) {
+              const dLast = dOHLCV.at(-1);
+              const dEMA50 = dOHLCV.slice(-50).reduce((a,b) => a + b[4], 0) / 50;
+              if (isLong && dLast[4] < dEMA50) higherTFConfirm = false;
+              if (!isLong && dLast[4] > dEMA50) higherTFConfirm = false;
+            }
+          } catch(e) {}
+
+          if (!higherTFConfirm) continue;
+
+          // Entry chính xác hơn: chờ pullback
+          let entryPrice = last[4];
+          if (isLong) {
+            entryPrice = Math.max(last[4], upper * 0.982);   // Pullback nhẹ về Upper Band
+          } else {
+            entryPrice = Math.min(last[4], lower * 1.018);
+          }
+
           breakout.push({
             symbol: clean,
             direction: isLong ? 'LONG' : 'SHORT',
-            price: last[4].toFixed(6),
+            price: entryPrice.toFixed(6),
             bandwidth: (bandwidth*100).toFixed(2),
             score: score.toFixed(1),
             rank,
@@ -446,7 +472,6 @@ app.get('/api/scan', async (req, res) => {
 
           const exists = activeSignals.some(s => s.symbol === clean);
           if (!exists) {
-            const entry = isLong ? pullbackLong ? currentPrice : last[4] : last[4];
             const signal = {
               trailing: false,
               score: score.toFixed(1),
@@ -455,17 +480,17 @@ app.get('/api/scan', async (req, res) => {
               symbol: clean,
               fullSymbol: symbol,
               direction: isLong ? 'LONG' : 'SHORT',
-              entry,
-              tp1: isLong ? entry * 1.04 : entry * 0.96,
-              tp2: isLong ? entry * 1.08 : entry * 0.92,
-              tp3: isLong ? entry * 1.13 : entry * 0.87,
-              sl: isLong ? entry * 0.96 : entry * 1.04,
+              entry: entryPrice,
+              tp1: isLong ? entryPrice * 1.038 : entryPrice * 0.962,
+              tp2: isLong ? entryPrice * 1.078 : entryPrice * 0.922,
+              tp3: isLong ? entryPrice * 1.135 : entryPrice * 0.865,
+              sl: isLong ? entryPrice * 0.955 : entryPrice * 1.045,
               timestamp: new Date().toLocaleString('vi-VN'),
               hitTP1: false,
               hitTP2: false,
               hitTP3: false,
               hitSL: false,
-              currentPrice: entry,
+              currentPrice: entryPrice,
               pnlPercent: 0
             };
 
@@ -476,7 +501,7 @@ app.get('/api/scan', async (req, res) => {
             sendTelegram(`
 🚨 <b>${signal.rank} SIGNAL</b>
 💎 <b>${signal.symbol}</b>
-${signal.direction === 'LONG' ? '🟢 LONG' : '🔴 SHORT'}
+${isLong ? '🟢 LONG' : '🔴 SHORT'}
 💰 Entry: <b>${signal.entry.toFixed(6)}</b>
 🎯 TP1: ${signal.tp1.toFixed(6)}
 🎯 TP2: ${signal.tp2.toFixed(6)}
