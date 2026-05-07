@@ -120,31 +120,67 @@ app.get('/logout', (req, res) => {
   res.redirect('/');
 });
 
-// ================= MINI APP APIs =================
+// ================= MINI APP APIs - TỐI ƯU (KHÔNG TIMEOUT) =================
 app.get('/api/vip-signals', async (req, res) => {
   try {
-    const wallet = req.headers.wallet;
+    const wallet = req.headers.wallet || '';
     const isVIP = isOwner(wallet);
+    const isO = isOwner(wallet);
 
-    // Update realtime price
-    for (let signal of activeSignals) {
+    // Chỉ update tối đa 30 lệnh đang mở để tránh timeout
+    const signalsToUpdate = activeSignals.slice(0, 30);
+
+    const updatePromises = signalsToUpdate.map(async (signal) => {
       try {
         const ticker = await exchange.fetchTicker(signal.fullSymbol);
         const price = ticker.last;
         signal.currentPrice = price;
-        signal.pnlPercent = signal.direction === 'LONG' 
+
+        const isLong = signal.direction === 'LONG';
+        signal.pnlPercent = isLong 
           ? ((price - signal.entry) / signal.entry * 100)
           : ((signal.entry - price) / signal.entry * 100);
-      } catch (e) {}
-    }
+
+        // Update hit TP/SL
+        if (isLong) {
+          if (price >= signal.tp1 && !signal.hitTP1) signal.hitTP1 = true;
+          if (price >= signal.tp2 && !signal.hitTP2) signal.hitTP2 = true;
+          if (price >= signal.tp3 && !signal.hitTP3) signal.hitTP3 = true;
+          if (price <= signal.sl) signal.hitSL = true;
+        } else {
+          if (price <= signal.tp1 && !signal.hitTP1) signal.hitTP1 = true;
+          if (price <= signal.tp2 && !signal.hitTP2) signal.hitTP2 = true;
+          if (price <= signal.tp3 && !signal.hitTP3) signal.hitTP3 = true;
+          if (price >= signal.sl) signal.hitSL = true;
+        }
+      } catch (e) {
+        // Bỏ qua coin lỗi
+      }
+    });
+
+    await Promise.all(updatePromises);
+
+    // Xóa lệnh đã đóng (hit SL)
+    activeSignals = activeSignals.filter(s => !s.hitSL);
 
     res.json({
-      isVIP,
-      isOwner: isOwner(wallet),
-      signals: isVIP ? activeSignals : activeSignals.slice(0, 3),
+      isVIP: isVIP,
+      isOwner: isO,
+      signals: isVIP ? activeSignals : activeSignals.slice(0, 5),
       observe: latestObserve,
       breakout: latestBreakout
     });
+  } catch (err) {
+    console.error("API vip-signals error:", err.message);
+    res.json({ 
+      isVIP: false, 
+      isOwner: false, 
+      signals: [], 
+      observe: latestObserve, 
+      breakout: latestBreakout 
+    });
+  }
+});
   } catch (err) {
     res.json({ isVIP: false, signals: [] });
   }
