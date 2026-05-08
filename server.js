@@ -8,7 +8,9 @@ const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
+let lastScanTime = null;
+let lastScanTF = "";
+let currentScanning = null;
 // ================= CONFIG =================
 const OWNER_WALLETS = [
     "UQA6rsniXUm67jpX7OmUctetQmt_FrW4M2zO4qn9bTmWlIlX",
@@ -20,6 +22,25 @@ const TELEGRAM_CHAT_ID = '-1002156203382';
 
 const isOwner = (wallet) => OWNER_WALLETS.some(o => o.toLowerCase() === (wallet || "").toLowerCase());
 
+// ================= VISITOR COUNTER =================
+const VISITOR_PATH = '/app/data/visitors.json';
+let visitorCount = 0;
+
+try {
+  if (!fs.existsSync('/app/data')) {
+    fs.mkdirSync('/app/data', { recursive: true });
+  }
+  if (fs.existsSync(VISITOR_PATH)) {
+    const data = fs.readFileSync(VISITOR_PATH, 'utf-8');
+    visitorCount = JSON.parse(data).count || 0;
+    console.log("✅ Loaded visitor count:", visitorCount);
+  } else {
+    fs.writeFileSync(VISITOR_PATH, JSON.stringify({ count: 0 }, null, 2));
+    console.log("📂 Tạo file visitors.json mới");
+  }
+} catch (err) {
+  console.log("❌ Visitor init error:", err.message);
+}
 // ================= MIDDLEWARE =================
 app.use(cors({ origin: '*' }));
 app.use(express.json());
@@ -123,6 +144,11 @@ app.get('/logout', (req, res) => {
 // ================= MINI APP APIs - TỐI ƯU (KHÔNG TIMEOUT) =================
 app.get('/api/vip-signals', async (req, res) => {
   try {
+      // ================= TĂNG VISITOR COUNTER =================
+    visitorCount++;
+    try {
+      fs.writeFileSync(VISITOR_PATH, JSON.stringify({ count: visitorCount }, null, 2));
+    } catch (e) {}
     const wallet = req.headers.wallet || '';
     const isVIP = isOwner(wallet);
     const isO = isOwner(wallet);
@@ -192,7 +218,18 @@ app.get('/api/breakout', (req, res) => res.json({ breakout: latestBreakout }));
 app.post('/api/verify-payment', (req, res) => {
   res.json({ success: true, message: "VIP activated for 30 days" });
 });
+// ================= VISITOR COUNTER API =================
+app.get('/api/visitors', (req, res) => {
+  res.json({ count: visitorCount });
+});
 
+app.post('/api/visit', (req, res) => {
+  visitorCount++;
+  try {
+    fs.writeFileSync(VISITOR_PATH, JSON.stringify({ count: visitorCount }, null, 2));
+  } catch (e) {}
+  res.json({ success: true, count: visitorCount });
+});
 // ================= SCANNER ROUTES =================
 app.get('/api/signals', (req, res) => {
   res.json({ active: activeSignals, history: signalHistory });
